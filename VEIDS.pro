@@ -17,13 +17,11 @@ SOURCES += main.cpp\
         VEIDS.cpp \
     gui.cpp \
     openpose.cpp \
-    motiondetection.cpp \
-    dispatcher.cpp
+    motiondetection.cpp
 
 HEADERS  += VEIDS.h \
     openpose.h \
-    motiondetection.h \
-    dispatcher.h
+    motiondetection.h
 
 FORMS    += VEIDS.ui
 

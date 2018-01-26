@@ -17,7 +17,7 @@ class MotionDetection : public QThread
 {
     Q_OBJECT
 public:
-    MotionDetection(int cols,int rows);
+    MotionDetection(std::string resolution);
     ~MotionDetection();
     msgOutput result;
     op::Array<float> poseKeypoints;

@@ -4,7 +4,9 @@
 #include <QObject>
 #include <QThread>
 // OpenPose dependencies
+#include "motiondetection.h"
 #include <openpose/headers.hpp>
+#include <iostream>
 
 // If the user needs his own variables, he can inherit the op::Datum struct and add them
 // UserDatum can be directly used by the OpenPose wrapper because it inherits from op::Datum, just define
@@ -22,13 +24,13 @@ class OpenPose : public QThread
 {
     Q_OBJECT
 public:
-    OpenPose();
+    OpenPose(std::string path);
     ~OpenPose();
-    cv::Mat inputImage;
+    MotionDetection *detector;
     cv::Mat outputImage;
-    op::Array<float> poseKeypoints;
+    bool want2exit = false;
 private:
-    op::ScaleAndSizeExtractor *scaleAndSizeExtractor;
+    op::Wrapper<std::vector<UserDatum>> opWrapper{op::ThreadManagerMode::AsynchronousOut};
 protected:
     void run();
 signals:

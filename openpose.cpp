@@ -1,110 +1,121 @@
 #include "openpose.h"
 
-// OpenPose dependencies
-
-#define FLAGS_logging_level            3              // "The logging level. Integer in the range [0, 255]. 0 will output any log() message, while"
-                                                      // " 255 will not output any. Current OpenPose library messages are in the range 0-4: 1 for"
-                                                      // " low priority messages and 4 for important ones."
-                                                      // "Process the desired image."
+// Debugging/Other
+/*--------------------------------------------------------------------------------------------
+ * "The logging level. Integer in the range [0, 255]. 0 will output any log() message, while"
+ * " 255 will not output any. Current OpenPose library messages are in the range 0-4: 1 for"
+ * " low priority messages and 4 for important ones."
+--------------------------------------------------------------------------------------------*/
+#define FLAGS_logging_level 0
+/*--------------------------------------------------------------------------------------------
+ * "It would slightly reduce the frame rate in order to highly reduce the lag. Mainly useful"
+ * " for 1) Cases where it is needed a low latency (e.g. webcam in real-time scenarios with"
+ * " low-range GPU devices); and 2) Debugging OpenPose when it is crashing to locate the"
+ * " error."
+--------------------------------------------------------------------------------------------*/
+#define FLAGS_disable_multi_thread      false
+// Producer
+#define FLAGS_camera                    -1
+#define FLAGS_camera_resolution         "640x480"
+#define FLAGS_camera_fps                30.0
+#define FLAGS_process_real_time         false
+#define FLAGS_frame_flip                false
+#define FLAGS_frame_rotate              0
 // OpenPose
-#define FLAGS_model_pose               "COCO"         // "Model to be used. E.g. `COCO` (18 keypoints), `MPI` (15 keypoints, ~10% faster), "
-                                                      // "`MPI_4_layers` (15 keypoints, even faster but less accurate)."
-#define FLAGS_model_folder             "/home/wiki/Tools/openpose/models/"
-                                                      // "Folder path (absolute or relative) where the models (pose, face, ...) are located."
-#define FLAGS_net_resolution           "-1x368"       // "Multiples of 16. If it is increased, the accuracy potentially increases. If it is"
-                                                      // " decreased, the speed increases. For maximum speed-accuracy balance, it should keep the"
-                                                      // " closest aspect ratio possible to the images or videos to be processed. Using `-1` in"
-                                                      // " any of the dimensions, OP will choose the optimal aspect ratio depending on the user's"
-                                                      // " input value. E.g. the default `-1x368` is equivalent to `656x368` in 16:9 resolutions,"
-                                                      // " e.g. full HD (1980x1080) and HD (1280x720) resolutions."
-#define FLAGS_output_resolution        "-1x-1"       // "The image resolution (display and output). Use \"-1x-1\" to force the program to use the"
-                                                      // " input image resolution."
-#define FLAGS_num_gpu_start             0             // "GPU device start number."
-#define FLAGS_scale_gap                 0.3           // "Scale gap between scales. No effect unless scale_number > 1. Initial scale is always 1."
-                                                      // " If you want to change the initial scale, you actually want to multiply the"
-                                                      // " `net_resolution` by your desired initial scale."
-#define FLAGS_scale_number              1             // "Number of scales to average."
+#define FLAGS_model_folder              "/home/wiki/Tools/openpose/models/"
+#define FLAGS_keypoint_scale            0
+// OpenPose Body Pose
+#define FLAGS_model_pose                "COCO"
+#define FLAGS_scale_number              1
+#define FLAGS_scale_gap                 0.3
+// OpenPose Body Pose Heatmaps
+#define FLAGS_heatmaps_add_parts        false
+#define FLAGS_heatmaps_add_bkg          false
+#define FLAGS_heatmaps_add_PAFs         false
+#define FLAGS_heatmaps_scale            2
 // OpenPose Rendering
-#define FLAGS_disable_blending          false         // "If enabled, it will render the results (keypoint skeletons or heatmaps) on a black"
-                                                      // " background, instead of being rendered into the original image. Related: `part_to_show`,"
-                                                      // " `alpha_pose`, and `alpha_pose`."
-#define FLAGS_render_threshold          0.05          // "Only estimated keypoints whose score confidences are higher than this threshold will be"
-                                                      // " rendered. Generally, a high threshold (> 0.5) will only render very clear body parts;"
-                                                      // " while small thresholds (~0.1) will also output guessed and occluded keypoints, but also"
-                                                      // " more false positives (i.e. wrong detections)."
-#define FLAGS_alpha_pose                0.6           // "Blending factor (range 0-1) for the body part rendering. 1 will show it completely, 0 will"
-                                                      // " hide it. Only valid for GPU rendering."
+#define FLAGS_part_to_show              0
+#define FLAGS_disable_blending          false
+// OpenPose Rendering Pose
+#define FLAGS_render_threshold          0.05
+#define FLAGS_render_pose               2
+#define FLAGS_alpha_pose                0.6
+#define FLAGS_alpha_heatmap             0.7
 
 void OpenPose::run()
 {
-    // Step 2 - Read Google flags (user defined configuration)
-    // poseModel
-    const auto poseModel = op::flagsToPoseModel(FLAGS_model_pose);
-    // Logging
-    op::log("", op::Priority::Low, __LINE__, __FUNCTION__, __FILE__);
-    // Step 3 - Initialize all required classes
-    op::CvMatToOpInput cvMatToOpInput;
-    op::CvMatToOpOutput cvMatToOpOutput;
-    op::PoseExtractorCaffe poseExtractorCaffe{poseModel, FLAGS_model_folder,
-                                              FLAGS_num_gpu_start, {}, op::ScaleMode::ZeroToOne, true};
-    op::PoseCpuRenderer poseRenderer{poseModel, (float)FLAGS_render_threshold, !FLAGS_disable_blending,
-                                     (float)FLAGS_alpha_pose};
-    // Step 4 - Initialize resources on desired thread (in this case single thread, i.e. we init resources here)
-    poseExtractorCaffe.initializationOnThread();
-    poseRenderer.initializationOnThread();
-    op::OpOutputToCvMat opOutputToCvMat;
-
-    // ------------------------- POSE ESTIMATION AND RENDERING -------------------------
-    // Step 1 - Read and load image, error if empty (possibly wrong path)
-    // Alternative: cv::imread(FLAGS_image_path, CV_LOAD_IMAGE_COLOR);
-    if(inputImage.empty())
-        op::error("Could not open or find the image: ", __LINE__, __FUNCTION__, __FILE__);
-    const op::Point<int> imageSize{inputImage.cols, inputImage.rows};
-    // Step 2 - Get desired scale sizes
-    std::vector<double> scaleInputToNetInputs;
-    std::vector<op::Point<int>> netInputSizes;
-    double scaleInputToOutput;
-    op::Point<int> outputResolution;
-    std::tie(scaleInputToNetInputs, netInputSizes, scaleInputToOutput, outputResolution)
-        = scaleAndSizeExtractor->extract(imageSize);
-    // Step 3 - Format input image to OpenPose input and output formats
-    const auto netInputArray = cvMatToOpInput.createArray(inputImage, scaleInputToNetInputs, netInputSizes);
-    auto outputArray = cvMatToOpOutput.createArray(inputImage, scaleInputToOutput, outputResolution);
-    // Step 4 - Estimate poseKeypoints
-    poseExtractorCaffe.forwardPass(netInputArray, imageSize, scaleInputToNetInputs);
-    poseKeypoints = poseExtractorCaffe.getPoseKeypoints();
-    // Step 5 - Render poseKeypoints
-    poseRenderer.renderPose(outputArray, poseKeypoints, scaleInputToOutput);
-    // Step 6 - OpenPose output format to cv::Mat
-    outputImage = opOutputToCvMat.formatToCvMat(outputArray);
-//    op::log("Pose successfully finished.", op::Priority::High);
+    while (!want2exit)
+    {
+        std::shared_ptr<std::vector<UserDatum>> datumProcessed;
+        if (opWrapper.waitAndPop(datumProcessed))
+        {
+            outputImage = datumProcessed->at(0).cvOutputData;
+            emit outputDone();
+            detector->poseKeypoints = datumProcessed->at(0).poseKeypoints;
+            detector->start();
+        }
+    }
 }
 
-OpenPose::OpenPose()
+OpenPose::OpenPose(std::string path)
 {
-    // ------------------------- INITIALIZATION -------------------------
-    // Step 1 - Set logging level
-        // - 0 will output all the logging messages
-        // - 255 will output nothing
-    op::check(0 <= FLAGS_logging_level && FLAGS_logging_level <= 255, "Wrong logging_level value.",
-              __LINE__, __FUNCTION__, __FILE__);
-    op::ConfigureLog::setPriorityThreshold((op::Priority)FLAGS_logging_level);
-    op::log("", op::Priority::Low, __LINE__, __FUNCTION__, __FILE__);
-    // Check no contradictory flags enabled
-    if (FLAGS_alpha_pose < 0. || FLAGS_alpha_pose > 1.)
-        op::error("Alpha value for blending must be in the range [0,1].", __LINE__, __FUNCTION__, __FILE__);
-    if (FLAGS_scale_gap <= 0. && FLAGS_scale_number > 1)
-        op::error("Incompatible flag configuration: scale_gap must be greater than 0 or scale_number = 1.",
-                  __LINE__, __FUNCTION__, __FILE__);
+    detector = new MotionDetection(FLAGS_camera_resolution);
+    std::string videoPath = "";
+    std::string rtspPath = "";
+    int cameraPath = -1;
+    if(path.length() == 0)
+        std::cout << "The path is wrong." << std::endl;
+    else if(path.length() <= 2)
+        cameraPath = atoi(path.c_str());
+    else if((int)path.find("rtsp") != -1)
+        rtspPath = path;
+    else
+        videoPath = path;
+    // logging_level
+    op::ConfigureLog::setPriorityThreshold((op::Priority)255);
+    // Applying user defined configuration - Google flags to program variables
     // outputSize
-    const auto outputSize = op::flagsToPoint(FLAGS_output_resolution, "-1x-1");
+    op::Point<int> outputSize,netInputSize;
+    outputSize.x = -1; outputSize.y = -1;
     // netInputSize
-    const auto netInputSize = op::flagsToPoint(FLAGS_net_resolution, "-1x368");
-    scaleAndSizeExtractor = new op::ScaleAndSizeExtractor(netInputSize, outputSize, FLAGS_scale_number, FLAGS_scale_gap);
-    op::log("OpenPose Initial Successful.", op::Priority::High);
+    netInputSize.x = -1; netInputSize.y = 368;
+    // producerType
+    const auto producerSharedPtr = op::flagsToProducer("", videoPath, rtspPath, cameraPath, FLAGS_camera_resolution, FLAGS_camera_fps);
+    // poseModel
+    const auto poseModel = op::flagsToPoseModel(FLAGS_model_pose);
+    // keypointScale
+    const auto keypointScale = op::flagsToScaleMode(FLAGS_keypoint_scale);
+    // heatmaps to add
+    const auto heatMapTypes = op::flagsToHeatMaps(FLAGS_heatmaps_add_parts, FLAGS_heatmaps_add_bkg, FLAGS_heatmaps_add_PAFs);
+    const auto heatMapScale = op::flagsToHeatMapScaleMode(FLAGS_heatmaps_scale);
+    // Logging
+    op::log("", op::Priority::Low, __LINE__, __FUNCTION__, __FILE__);
+    // Configure OpenPose
+    op::log("Configuring OpenPose wrapper.", op::Priority::Low, __LINE__, __FUNCTION__, __FILE__);
+    // Pose configuration (use WrapperStructPose{} for default and recommended configuration)
+    const op::WrapperStructPose wrapperStructPose{true, netInputSize, outputSize, keypointScale,-1, 0, FLAGS_scale_number,
+                                                  (float)FLAGS_scale_gap, op::flagsToRenderMode(FLAGS_render_pose),
+                                                  poseModel, !FLAGS_disable_blending, (float)FLAGS_alpha_pose,
+                                                  (float)FLAGS_alpha_heatmap, FLAGS_part_to_show, FLAGS_model_folder,
+                                                  heatMapTypes, heatMapScale, (float)FLAGS_render_threshold,true};
+    // Producer (use default to disable any input)
+    const op::WrapperStructInput wrapperStructInput{producerSharedPtr, 0, (unsigned long long)-1,
+                                                    FLAGS_process_real_time, FLAGS_frame_flip, FLAGS_frame_rotate,
+                                                    cameraPath==-1?true:false};
+    // Configure wrapper
+    opWrapper.configure(wrapperStructPose, wrapperStructInput);
+    // Set to single-thread running (to debug and/or reduce latency)
+    if (FLAGS_disable_multi_thread)
+       opWrapper.disableMultiThreading();
+    op::log("Starting thread(s)", op::Priority::High);
+    opWrapper.start();
 }
 
 OpenPose::~OpenPose()
 {
-    op::log("OpenPose delete successful.", op::Priority::High);
+    op::log("Stopping thread(s)", op::Priority::High);
+    opWrapper.stop();
+    detector->terminate();
+    detector->wait();
+    delete detector;
 }

@@ -4,16 +4,15 @@
 using namespace cv;
 using namespace std;
 
-MotionDetection::MotionDetection(int cols, int rows)
+MotionDetection::MotionDetection(std::string resolution)
 {
-    imgwidth = rows; imgheight = cols;
+    sscanf(resolution.c_str(),"%dx%d",&imgwidth,&imgheight);
 }
 
 void MotionDetection::run()
 {
-    Mat resultimg(imgwidth,imgheight,CV_8UC3,Scalar(255,255,255));
+    Mat resultimg(imgheight,imgwidth,CV_8UC3,Scalar(255,255,255));
     Point point;
-//    printKeypoints();
     result.num = poseKeypoints.getSize(0);
 
     for (auto person = 0 ; person < poseKeypoints.getSize(0) ; person++)

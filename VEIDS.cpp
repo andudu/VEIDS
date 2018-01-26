@@ -10,26 +10,27 @@ VEIDS::VEIDS(QWidget *parent) :
     ui->source_comboBox->addItem("摄像头");
     ui->source_comboBox->addItem("视频文件");
     ui->source_comboBox->addItem("Rtsp直播源");
-    ui->source_comboBox->addItem("图片");
     ui->IMAGE->setScaledContents(true);
     ui->select_pushButton->setVisible(false);
     qRegisterMetaType<cv::Mat>("cv::Mat");
     qRegisterMetaType<msgOutput>("msgOutput");
 }
 
-void VEIDS::refreashImg(cv::Mat outputImg)
+void VEIDS::refreashImg()
 {
     cv::Mat picMat;
-    cv::cvtColor(outputImg,picMat,CV_BGR2RGB);
+    cv::cvtColor(openpose->outputImage,picMat,CV_BGR2RGB);
     QImage picQImage = QImage((uchar*) picMat.data, picMat.cols, picMat.rows, QImage::Format_RGB888);
     QPixmap picQPixmap = QPixmap::fromImage(picQImage);
     ui->IMAGE->setPixmap(picQPixmap);
     ui->IMAGE->show();
 }
 
-void VEIDS::refreashMsg(msgOutput outputMsg){
+void VEIDS::refreashMsg(msgOutput outputMsg)
+{
     ui->number->setText(QString::number(outputMsg.num));
-    switch(outputMsg.state){
+    switch(outputMsg.state)
+    {
     case 1:
         ui->state->setText("异常");
         break;
@@ -39,13 +40,13 @@ void VEIDS::refreashMsg(msgOutput outputMsg){
     }
 }
 
-void VEIDS::dispatcherDelete()
+void VEIDS::openposeDelete()
 {
     ui->start_pushButton->setEnabled(true);
     ui->stop_pushButton->setEnabled(false);
-    dispatcher->terminate();
-    dispatcher->wait();
-    delete dispatcher;
+    openpose->terminate();
+    openpose->wait();
+    delete openpose;
 }
 
 void VEIDS::on_source_comboBox_currentIndexChanged(int index)
@@ -70,23 +71,17 @@ void VEIDS::on_select_pushButton_clicked()
 
 void VEIDS::on_start_pushButton_clicked()
 {
-    if(ui->source_comboBox->currentIndex() != 3){
-        ui->start_pushButton->setEnabled(false);
-        ui->stop_pushButton->setEnabled(true);
-        dispatcher = new Dispatcher(ui->source_lineEdit->text().toStdString());
-        connect(dispatcher,SIGNAL(outputImgDone(cv::Mat)),this,SLOT(refreashImg(cv::Mat)));
-        connect(dispatcher,SIGNAL(outputMsgDone(msgOutput)),this,SLOT(refreashMsg(msgOutput)));
-        connect(dispatcher,SIGNAL(finished()),this,SLOT(dispatcherDelete()));
-        dispatcher->start();
-    }
-    else{
-
-    }
+    ui->start_pushButton->setEnabled(false);
+    ui->stop_pushButton->setEnabled(true);
+    openpose = new OpenPose(ui->source_lineEdit->text().toStdString());
+    connect(openpose,SIGNAL(outputDone()),this,SLOT(refreashImg()));
+    connect(openpose,SIGNAL(finished()),this,SLOT(openposeDelete()));
+    openpose->start();
 }
 
 void VEIDS::on_stop_pushButton_clicked()
 {
-    dispatcher->flag_exit = true;
+    openpose->want2exit = true;
 }
 
 VEIDS::~VEIDS()
