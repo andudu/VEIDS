@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/new/ico">
+        <file>LWCap.ico</file>
+    </qresource>
+</RCC>
