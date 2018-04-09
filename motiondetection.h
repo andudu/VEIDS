@@ -9,8 +9,8 @@
 
 struct msgOutput
 {
-    int num;
-    int state;
+    int num = 0;
+    int state = 0x00;
 };
 
 class MotionDetection : public QThread
@@ -20,12 +20,15 @@ public:
     MotionDetection(std::string resolution);
     ~MotionDetection();
     msgOutput result;
+    cv::Mat outputImage;
     op::Array<float> poseKeypoints;
-private:
     int imgwidth,imgheight;
+private:
     void printKeypoints();
 protected:
     void run();
+signals:
+    void outputDone();
 };
 
 #endif // MOTIONDETECTION_H

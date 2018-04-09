@@ -16,14 +16,14 @@
 #define FLAGS_disable_multi_thread      false
 // Producer
 #define FLAGS_camera                    -1
-#define FLAGS_camera_resolution         "640x480"
+#define FLAGS_camera_resolution         "512x288"
 #define FLAGS_camera_fps                30.0
 #define FLAGS_process_real_time         false
 #define FLAGS_frame_flip                false
 #define FLAGS_frame_rotate              0
 // OpenPose
 #define FLAGS_model_folder              "/home/wiki/Tools/openpose/models/"
-#define FLAGS_keypoint_scale            0
+#define FLAGS_keypoint_scale            1
 // OpenPose Body Pose
 #define FLAGS_model_pose                "COCO"
 #define FLAGS_scale_number              1
@@ -51,6 +51,7 @@ void OpenPose::run()
         {
             outputImage = datumProcessed->at(0).cvOutputData;
             emit outputDone();
+            outputImage.copyTo(detector->outputImage);
             detector->poseKeypoints = datumProcessed->at(0).poseKeypoints;
             detector->start();
         }
@@ -75,10 +76,9 @@ OpenPose::OpenPose(std::string path)
     op::ConfigureLog::setPriorityThreshold((op::Priority)255);
     // Applying user defined configuration - Google flags to program variables
     // outputSize
-    op::Point<int> outputSize,netInputSize;
-    outputSize.x = -1; outputSize.y = -1;
+    const auto outputSize = op::flagsToPoint(FLAGS_camera_resolution, "-1x-1");
     // netInputSize
-    netInputSize.x = -1; netInputSize.y = 368;
+    const auto netInputSize = op::flagsToPoint(FLAGS_camera_resolution, "-1x368");
     // producerType
     const auto producerSharedPtr = op::flagsToProducer("", videoPath, rtspPath, cameraPath, FLAGS_camera_resolution, FLAGS_camera_fps);
     // poseModel

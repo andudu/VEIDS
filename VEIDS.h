@@ -18,12 +18,14 @@ public:
     ~VEIDS();
 private:
     Ui::VEIDS *ui;
+    void keyPressEvent(QKeyEvent *event);
     OpenPose *openpose;
+    MotionDetection *detector;
     int openPoseTutorialWrapper1();
     QPixmap cvMat2QPixmap(const cv::Mat& src);
 private slots:
     void refreashImg();
-    void refreashMsg(msgOutput outputMsg);
+    void refreashMsg();
     void openposeDelete();
     void on_source_comboBox_currentIndexChanged(int index);
     void on_select_pushButton_clicked();

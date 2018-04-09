@@ -4,7 +4,7 @@
 #
 #-------------------------------------------------
 
-QT       += core gui
+QT       += core gui multimedia
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -25,7 +25,10 @@ HEADERS  += VEIDS.h \
 
 FORMS    += VEIDS.ui
 
-LIBS     += -lopenpose -lcaffe -lgflags -lopencv_core -lopencv_highgui -lopencv_imgproc -lopencv_objdetect -lpthread
+QMAKE_CXXFLAGS += -fopenmp
+
+LIBS     += -lopenpose -lcaffe -lgflags -lopencv_core -lopencv_highgui -lopencv_imgproc -lopencv_objdetect -lpthread -fopenmp
 
 RESOURCES += \
-    img/img.qrc
+    img/img.qrc \
+    sound/sound.qrc

@@ -25,8 +25,8 @@ class OpenPose : public QThread
     Q_OBJECT
 public:
     OpenPose(std::string path);
-    ~OpenPose();
     MotionDetection *detector;
+    ~OpenPose();
     cv::Mat outputImage;
     bool want2exit = false;
 private:
